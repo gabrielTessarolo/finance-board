@@ -12,6 +12,7 @@ import {
   todayISO,
 } from '@/lib/format';
 import type { ItemClassDto, SummaryDto, TransactionDto } from '@/lib/types';
+import { CsvImportModal } from './csv-import-modal';
 import { TransactionForm } from './transaction-form';
 import { btnLink, btnLinkDanger, btnPrimary, btnSecondary, ErrorBox, PageHeader } from './ui';
 
@@ -35,6 +36,7 @@ export function Dashboard() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [form, setForm] = useState<FormState>(null);
+  const [showCsvImport, setShowCsvImport] = useState(false);
   const [reloadKey, setReloadKey] = useState(0);
 
   const reload = useCallback(() => {
@@ -91,9 +93,14 @@ export function Dashboard() {
       <PageHeader
         title="Transações"
         action={
-          <button className={btnPrimary} onClick={() => setForm({})} disabled={classes.length === 0}>
-            + Nova transação
-          </button>
+          <div className="flex gap-2">
+            <button className={btnSecondary} onClick={() => setShowCsvImport(true)} disabled={classes.length === 0}>
+              Importar CSV
+            </button>
+            <button className={btnPrimary} onClick={() => setForm({})} disabled={classes.length === 0}>
+              + Nova transação
+            </button>
+          </div>
         }
       />
 
@@ -179,6 +186,14 @@ export function Dashboard() {
           </tbody>
         </table>
       </div>
+
+      {showCsvImport && (
+        <CsvImportModal
+          classes={classes}
+          onClose={() => setShowCsvImport(false)}
+          onImported={reload}
+        />
+      )}
 
       {form && (
         <TransactionForm

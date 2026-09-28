@@ -23,7 +23,7 @@ jobs:
         env:
           SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
 
-  deploy:
+  build-docker:
     needs: migrate
     runs-on: ubuntu-latest
     environment: production
@@ -50,8 +50,8 @@ jobs:
             NEXT_PUBLIC_SUPABASE_URL=${{ secrets.NEXT_PUBLIC_SUPABASE_URL }}
             NEXT_PUBLIC_SUPABASE_ANON_KEY=${{ secrets.NEXT_PUBLIC_SUPABASE_ANON_KEY }}
 
-  deploy-vercel:
-    needs: deploy
+  deploy:
+    needs: build-docker
     runs-on: ubuntu-latest
     environment: production
     steps:

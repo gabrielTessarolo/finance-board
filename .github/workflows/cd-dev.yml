@@ -27,6 +27,9 @@ jobs:
     needs: migrate
     runs-on: ubuntu-latest
     environment: development
+    permissions:
+      contents: read
+      packages: write
     steps:
       - uses: actions/checkout@v4
 

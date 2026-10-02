@@ -1,21 +1,37 @@
-import { sendMessage } from '@/lib/telegram/send';
+import { answerCallbackQuery, sendMessage } from '@/lib/telegram/send';
 import { resolveSession } from '@/lib/telegram/session';
 import { handleStart } from '@/lib/telegram/handlers/start';
 import { handleDashboard } from '@/lib/telegram/handlers/dashboard';
-import { handleRegistrar } from '@/lib/telegram/handlers/registrar';
+import {
+  handleCategoryCallback,
+  handleRegistrarReply,
+  showCategories,
+} from '@/lib/telegram/handlers/registrar';
+
+interface TelegramMessage {
+  chat: { id: number };
+  text?: string;
+  reply_to_message?: { text?: string };
+}
 
 interface TelegramUpdate {
-  message?: {
-    chat: { id: number };
-    text?: string;
+  message?: TelegramMessage;
+  callback_query?: {
+    id: string;
+    from: { id: number };
+    message?: TelegramMessage;
+    data?: string;
   };
 }
 
 const HELP = [
   'Comandos disponíveis:',
   '/dashboard — resumo do mês atual',
-  '/registrar \\[descrição\\] \\[valor\\] \\[categoria\\] — nova transação',
+  '/registrar — nova transação',
 ].join('\n');
+
+const SESSION_EXPIRED =
+  'Sessão não encontrada ou expirada.\nAcesse o FinanceBoard em *Configurações > Conectar Telegram* para reconectar.';
 
 export async function POST(req: Request): Promise<Response> {
   const secret = req.headers.get('x-telegram-bot-api-secret-token');
@@ -30,13 +46,30 @@ export async function POST(req: Request): Promise<Response> {
     return new Response(null, { status: 200 });
   }
 
-  const { message } = update;
-  if (!message?.text || !message?.chat?.id) return new Response(null, { status: 200 });
-
-  const chatId = message.chat.id;
-  const text = message.text.trim();
-
   try {
+    // ── Clique em botão inline ──────────────────────────────────────────────
+    if (update.callback_query) {
+      const { id: callbackId, from, message, data } = update.callback_query;
+      const chatId = message?.chat?.id ?? from.id;
+
+      const session = await resolveSession(chatId);
+      if (!session) {
+        await answerCallbackQuery(callbackId);
+        await sendMessage(chatId, SESSION_EXPIRED);
+        return new Response(null, { status: 200 });
+      }
+
+      await handleCategoryCallback(chatId, callbackId, data ?? '', session.accessToken);
+      return new Response(null, { status: 200 });
+    }
+
+    // ── Mensagem de texto ───────────────────────────────────────────────────
+    const { message } = update;
+    if (!message?.text || !message?.chat?.id) return new Response(null, { status: 200 });
+
+    const chatId = message.chat.id;
+    const text = message.text.trim();
+
     if (text.startsWith('/start')) {
       await sendMessage(chatId, await handleStart(chatId, text));
       return new Response(null, { status: 200 });
@@ -44,10 +77,19 @@ export async function POST(req: Request): Promise<Response> {
 
     const session = await resolveSession(chatId);
     if (!session) {
-      await sendMessage(
-        chatId,
-        'Sessão não encontrada ou expirada.\nAcesse o FinanceBoard em *Configurações > Conectar Telegram* para reconectar.',
+      await sendMessage(chatId, SESSION_EXPIRED);
+      return new Response(null, { status: 200 });
+    }
+
+    // Resposta ao force_reply do /registrar (contém ref:UUID na mensagem original)
+    if (message.reply_to_message?.text && /\bref:[a-f0-9-]{36}\b/.test(message.reply_to_message.text)) {
+      const reply = await handleRegistrarReply(
+        text,
+        message.reply_to_message.text,
+        session.accessToken,
+        session.userId,
       );
+      await sendMessage(chatId, reply);
       return new Response(null, { status: 200 });
     }
 
@@ -55,7 +97,8 @@ export async function POST(req: Request): Promise<Response> {
     if (text.startsWith('/dashboard')) {
       reply = await handleDashboard(session.accessToken);
     } else if (text.startsWith('/registrar')) {
-      reply = await handleRegistrar(text, session.accessToken, session.userId);
+      await showCategories(chatId, session.accessToken);
+      return new Response(null, { status: 200 });
     } else {
       reply = HELP;
     }
@@ -63,7 +106,10 @@ export async function POST(req: Request): Promise<Response> {
     await sendMessage(chatId, reply);
   } catch (e) {
     console.error('[telegram/webhook] erro:', e);
-    await sendMessage(chatId, 'Ocorreu um erro inesperado. Tente novamente.').catch(() => undefined);
+    const chatId = update.message?.chat?.id ?? update.callback_query?.message?.chat?.id;
+    if (chatId) {
+      await sendMessage(chatId, 'Ocorreu um erro inesperado. Tente novamente.').catch(() => undefined);
+    }
   }
 
   return new Response(null, { status: 200 });

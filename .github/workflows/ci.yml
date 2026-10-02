@@ -17,7 +17,7 @@ jobs:
           node-version: 24
           cache: npm
 
-      - run: npm ci
+      - run: npm install
       - run: npm run lint
       - run: npm run typecheck
       - run: npm test
@@ -34,7 +34,7 @@ jobs:
           node-version: 24
           cache: npm
 
-      - run: npm ci
+      - run: npm install
       - run: npm run build
         env:
           NEXT_PUBLIC_SUPABASE_URL: ${{ secrets.NEXT_PUBLIC_SUPABASE_URL }}

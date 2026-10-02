@@ -73,7 +73,7 @@ jobs:
           VERCEL_PROJECT_ID: ${{ secrets.VERCEL_PROJECT_ID }}
 
       - name: Deploy
-        run: vercel deploy --prebuilt --prod --token=${{ secrets.VERCEL_TOKEN }}
+        run: echo "url=$(vercel deploy --token ${{ secrets.VERCEL_TOKEN }})" >> $GITHUB_OUTPUT
         env:
           VERCEL_ORG_ID: ${{ secrets.VERCEL_ORG_ID }}
           VERCEL_PROJECT_ID: ${{ secrets.VERCEL_PROJECT_ID }}
@@ -81,5 +81,5 @@ jobs:
       - name: Register Telegram webhook
         run: |
           curl -s -X POST "https://api.telegram.org/bot${{ secrets.TELEGRAM_BOT_TOKEN }}/setWebhook" \
-            -d "url=https://${{ secrets.NEXT_PUBLIC_SUPABASE_URL }}/api/telegram" \
+            -d "url=${{ steps.deploy.outputs.url }}/api/telegram" \
             -d "secret_token=${{ secrets.TELEGRAM_WEBHOOK_SECRET }}"

@@ -8,9 +8,11 @@ export function Nav({ name, isAdmin }: { name: string; isAdmin: boolean }) {
   const pathname = usePathname();
   const router = useRouter();
   const links = [
-    { href: '/', label: 'Transações' },
+    { href: '/', label: 'Dashboard' },
+    { href: '/transactions', label: 'Transações' },
     { href: '/classes', label: 'Classes' },
     ...(isAdmin ? [{ href: '/admin/users', label: 'Usuários' }] : []),
+    { href: '/settings', label: 'Configurações' },
   ];
 
   async function logout() {

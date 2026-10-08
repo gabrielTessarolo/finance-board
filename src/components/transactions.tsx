@@ -1,6 +1,7 @@
 'use client';
 
 import { useCallback, useEffect, useState } from 'react';
+import { useSearchParams } from 'next/navigation';
 import { api } from '@/lib/client/api';
 import {
   CLASS_TYPE_LABELS,
@@ -12,6 +13,7 @@ import {
   todayISO,
 } from '@/lib/format';
 import type { ItemClassDto, SummaryDto, TransactionDto } from '@/lib/types';
+import { CsvImportModal } from './csv-import-modal';
 import { TransactionForm } from './transaction-form';
 import { btnLink, btnLinkDanger, btnPrimary, btnSecondary, ErrorBox, PageHeader } from './ui';
 
@@ -27,14 +29,19 @@ function SummaryCard({ label, value, tone }: { label: string; value: number; ton
   );
 }
 
-export function Dashboard() {
-  const [month, setMonth] = useState(currentMonth);
+export function Transactions() {
+  const searchParams = useSearchParams();
+  const [month, setMonth] = useState(() => {
+    const m = searchParams.get('month');
+    return m && /^\d{4}-(0[1-9]|1[0-2])$/.test(m) ? m : currentMonth();
+  });
   const [transactions, setTransactions] = useState<TransactionDto[]>([]);
   const [summary, setSummary] = useState<SummaryDto | null>(null);
   const [classes, setClasses] = useState<ItemClassDto[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [form, setForm] = useState<FormState>(null);
+  const [showCsvImport, setShowCsvImport] = useState(false);
   const [reloadKey, setReloadKey] = useState(0);
 
   const reload = useCallback(() => {
@@ -91,9 +98,14 @@ export function Dashboard() {
       <PageHeader
         title="Transações"
         action={
-          <button className={btnPrimary} onClick={() => setForm({})} disabled={classes.length === 0}>
-            + Nova transação
-          </button>
+          <div className="flex gap-2">
+            <button className={btnSecondary} onClick={() => setShowCsvImport(true)} disabled={classes.length === 0}>
+              Importar CSV
+            </button>
+            <button className={btnPrimary} onClick={() => setForm({})} disabled={classes.length === 0}>
+              + Nova transação
+            </button>
+          </div>
         }
       />
 
@@ -179,6 +191,14 @@ export function Dashboard() {
           </tbody>
         </table>
       </div>
+
+      {showCsvImport && (
+        <CsvImportModal
+          classes={classes}
+          onClose={() => setShowCsvImport(false)}
+          onImported={reload}
+        />
+      )}
 
       {form && (
         <TransactionForm
